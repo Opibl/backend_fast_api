@@ -200,19 +200,34 @@ def top_products(limit: int = 10):
 
 @app.get("/sales-growth")
 def sales_growth():
-    monthly = (
-        df.groupby(df["Order Date"].dt.to_period("M"))
+    result = (
+        df
+        .groupby(df["Order Date"].dt.to_period("M"))
         .agg(sales=("Sales", "sum"))
         .reset_index()
         .sort_values("Order Date")
     )
 
-    monthly["prev_sales"] = monthly["sales"].shift(1)
-    monthly["growth_pct"] = (
-        (monthly["sales"] - monthly["prev_sales"]) / monthly["prev_sales"]
-    ) * 100
+    result["prev_sales"] = result["sales"].shift(1)
 
-    return monthly.fillna(0).round(2).to_dict("records")
+    result["growth_pct"] = (
+        (result["sales"] - result["prev_sales"])
+        / result["prev_sales"]
+        * 100
+    )
+
+    # ❗ NO rellenar growth con 0
+    result = result.dropna(subset=["growth_pct"])
+
+    return [
+        {
+            "month": r["Order Date"].strftime("%Y-%m"),
+            "sales": round(r["sales"], 2),
+            "growth_pct": round(r["growth_pct"], 2),
+        }
+        for _, r in result.iterrows()
+    ]
+
 
 
 @app.get("/sales-by-segment")
